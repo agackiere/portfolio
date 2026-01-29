@@ -1,0 +1,110 @@
+---
+title: "Time_Calculations"
+output: html_document
+date: "2026-01-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In some experiments, what participants do later depends on how they respond earlier. For instance, activities might be assigned based on depression scores, or, like in my research, on implicit motivation for social engagement. One compelling way to measure this motivation is with a reinforcement learning task that captures how rewarding people find social cues. In this project, I used participants’ choices in that task to decide whether they would spend time alone or with someone else, and for how long. This approach allowed me to test whether people were happier when their activities aligned with their underlying preferences.
+
+How does this work in practice? Reinforcement learning programs like PsychoPy automatically output a CSV file as soon as the task is completed. This script reads that file directly: the researcher selects the any  file in the data folder, enters the participant ID, and the script immediately extracts the necessary results. This allows experiment components to be adjusted quickly and with minimal effort.
+
+The same script can be adapted for a wide range of implicit measures (eg. Implicit Association Test). For instance, it could be used with tasks examining implicit bias or racism to assign participants to different scenarios based on their task performance rather than at random. In this way, experimental conditions can be tailored efficiently and transparently using participants’ own data.
+
+Additionally, no packages or anything fancy is needed to run this on R. This was designed to be as user friendly as possible. 
+
+These first few chunks (depicted as comments) cannot be run due to the "file choose" nature of the script. 
+
+However, the process will be described below in the form of photos. 
+
+![Click on a File](Images/instruction_image1.png)
+
+```{r file_grab}
+# click on ANY CSV FILE in the DATA FOLDER within the SOCIAL RL FOLDER
+# any_file <- file.choose() 
+```
+
+
+```{r get_file}
+#data_dir <- dirname(any_file)
+#cat("Data folder selected:", data_dir, "\n")
+```
+
+```{r type_id}
+#### ONCE YOU RUN THIS, TYPE THE PID IN THE CONSOLE DIRECTLY!!!
+#participant_id <- trimws(readline("Enter participant ID: "))
+```
+
+
+```{r find-csv}
+# find only CSVs that match this participant
+#csv_files <- list.files(data_dir, pattern = "\\.csv$", full.names = TRUE)
+#participant_file <- csv_files[grepl(participant_id, csv_files)]
+```
+
+```{r safety-check}
+# safety checks
+#if (length(participant_file) == 0) stop("No CSV found for this participant ID.")
+#if (length(participant_file) > 1) stop("Multiple CSVs found for this participant ID. Check filenames.")
+
+
+```
+
+```{r final-read}
+# read CSV and analyze the target column
+#data <- read.csv(participant_file)
+```
+
+Now, it's time for the pipeline demonstration. You'll see that if the right data was collected, we'll get a nice table that tells us what we need to know for the following activity.
+
+
+```{r read-csv-demo, echo=TRUE}
+# Participant ID
+participant_id <- "test1"
+
+# Read CSV
+data <- read.csv(paste0("data/", participant_id, ".csv"))
+```
+
+```{r name5}
+# required columns for our calculations
+required_cols <- c("OneOrTwo", "PictureValence")
+missing_cols <- setdiff(required_cols, names(data))
+
+# another safety check!
+if (length(missing_cols) > 0) {
+  stop(paste("Missing required columns:", paste(missing_cols, collapse = ", ")))
+}
+
+```
+
+
+In this scenario, we only want the counts of the photos with positive valence. These are the social rewards in our study that will determine the following activity.
+```{r name6}
+# count rows where:OneOrTwo == 2 AND PictureValence == 1
+num_positive_valence <- sum(
+  data$OneOrTwo == 2 & data$PictureValence == 1,
+  na.rm = TRUE
+)
+```
+
+Now we convert the number of positive photos they selected in the task to seconds.
+
+```{r name7}
+# converting to seconds
+total_seconds <- num_positive_valence * 15
+
+print(paste("Participant ID:", participant_id))
+print(paste("Positive valence trials:", num_positive_valence))
+print(paste("Total valence time:", total_seconds, "seconds"))
+
+```
+
+And done! In three steps total (running the first two lines and choosing a file; running the third line and typing in the participant ID in the console; and running the rest of the lines), the research assistants get all the information they need to move on to the next step of the experiment. In total, this takes about 2 minutes! 
+
+
+
+
