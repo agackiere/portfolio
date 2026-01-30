@@ -1,3 +1,6 @@
+# Instructions for my Lab Research Assistants
+  # Study Name: Social RL 
+
 # click on ANY CSV FILE in the DATA FOLDER that's in the SOCIAL RL FOLDER
 any_file <- file.choose()
 
@@ -5,10 +8,10 @@ any_file <- file.choose()
 data_dir <- dirname(any_file)
 cat("Data folder selected:", data_dir, "\n")
 
-#### ONCE YOU RUN THIS, TYPE THE PID IN THE CONSOLE DIRECTLY!!!
+#### ONCE YOU RUN THIS, TYPE THE Participant ID IN THE CONSOLE DIRECTLY!!!
 participant_id <- trimws(readline("Enter participant ID: ")) # note here to run, write test1
 
-# find only CSVs that match this participant
+# this finds only CSVs that match this participant
 csv_files <- list.files(data_dir, pattern = "\\.csv$", full.names = TRUE)
 participant_file <- csv_files[grepl(participant_id, csv_files)]
 
@@ -36,8 +39,8 @@ num_positive_valence <- sum(
 # converting to seconds
 total_seconds <- num_positive_valence * 15
 
-# Output (LOOK AT THE CONSOLE FOR TIME IN SECONDS)
-## THIS IS HOW LONG THEY WILL SPEND WITH SOMEONE ELSE IN THE ACTIVITY
+# Output
+## THIS IS HOW LONG THEY WILL SPEND WITH SOMEONE ELSE IN THE NEXT ACTIVITY
 
 cat("====================================\n")
 cat("Participant ID:", participant_id, "\n")
