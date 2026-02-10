@@ -1,9 +1,274 @@
 ---
 title: "Portfolio 2"
+author: "Insert your name here"
+date: "Insert date here"
+output: github_document
 ---
 
 > The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
 
 
 Project Description
-F
+
+
+First, I load all the libraries I think I might use (even if they go unused, I prefer this over having to check the libraries on and on as I go)
+```{r load-data-libraries}
+library(dplyr)      
+library(ggplot2)    
+library(survey)     
+library(tidyverse)   
+library(rstatix)   # in case
+library(lm.beta)
+library(haven)
+library(ggplot2)
+library(ggridges)
+
+load("NSDUH_2024.Rdata")
+
+```
+
+```{r cleaning}
+# Clean mental health score
+df <- NSDUH_2024 %>%
+  mutate(
+    MH_score = as.numeric(KSSLR6MONED),
+    MH_score = ifelse(MH_score %in% c(94, 97, 98, 99), NA, MH_score)
+  ) %>%
+  # Remove rows with missing MH_score or AGE3
+  filter(!is.na(MH_score), !is.na(AGE3))
+
+```
+
+```{r age}
+# Recode AGE3 into 3 broad adult age groups
+df <- df %>%
+  # Remove missing MH_score or AGE3
+  filter(!is.na(MH_score), !is.na(AGE3)) %>%
+  mutate(
+    AGE_GROUP = case_when(
+      AGE3 %in% 4:6  ~ "Young adult",   # 18–29
+      AGE3 %in% 7:9  ~ "Middle age",    # 30–64
+      AGE3 == 10 | AGE3 == 11 ~ "Older adult"
+    ),
+    AGE_GROUP = factor(AGE_GROUP, levels = c("Young adult", "Middle age", "Older adult"))
+  )
+
+# Check counts
+table(df$AGE_GROUP)
+```
+
+```{r sig-differences}
+# Kruskal-Wallis test
+kruskal.test(MH_score ~ AGE_GROUP, data = df)
+
+# Effect size
+kruskal_effsize(df, MH_score ~ AGE_GROUP)
+
+# Pairwise Wilcoxon comparisons
+pairwise.wilcox.test(df$MH_score, df$AGE_GROUP, p.adjust.method = "bonferroni")
+
+# let's plot it!
+ggplot(df, aes(x = MH_score, fill = AGE_GROUP)) +
+  geom_density(alpha = 0.4) +
+  labs(
+    x = "Mental Health Score",
+    y = "Density",
+    fill = "Age Group",
+    title = "Mental Health Scores by Age Group"
+  ) +
+  theme_minimal()
+```
+
+```{r young-adults}
+# lots of cleaning to do
+young_adults <- df %>%
+  filter(AGE_GROUP == "Young adult")
+
+young_adults <- young_adults %>%
+  mutate(
+    POVERTY3   = ifelse(POVERTY3 %in% c(94, 97, 98, 99), NA, POVERTY3),
+    HRTCONDEV2 = ifelse(HRTCONDEV2 %in% c(94, 97, 98, 99), NA, HRTCONDEV2),
+    BMI2       = ifelse(BMI2 %in% c(94, 97, 98, 99), NA, BMI2),
+    CASURCVR   = ifelse(CASURCVR %in% c(94, 97, 98, 99), NA, CASURCVR),
+    CAMHPROB   = ifelse(CAMHPROB %in% c(94, 97, 98, 99), NA, CAMHPROB),
+    HEALTH2    = ifelse(HEALTH2 %in% c(94, 97, 98, 99), NA, HEALTH2),
+    IRSEX      = ifelse(IRSEX %in% c(94, 97, 98, 99), NA, IRSEX),
+    HLCNOTYR   = ifelse(HLCNOTYR %in% c(94, 97, 98, 99), NA, HLCNOTYR),
+    GOVTPROG   = ifelse(GOVTPROG %in% c(94, 97, 98, 99), NA, GOVTPROG)
+  ) %>%
+  rename(
+    poverty_level = POVERTY3,
+    heart_condition = HRTCONDEV2,
+    bmi = BMI2,
+    drug_problem = CASURCVR,
+    mental_health_problem = CAMHPROB,
+    overall_health = HEALTH2,
+    gender = IRSEX,
+    no_health_insurance = HLCNOTYR,
+    gov_program = GOVTPROG
+  ) %>%
+   # Convert categorical predictors to factors
+  mutate(
+    heart_condition = factor(heart_condition),
+    drug_problem = factor(drug_problem),
+    mental_health_problem = factor(mental_health_problem),
+    gender = factor(gender),
+    no_health_insurance = factor(no_health_insurance),
+    gov_program = factor(gov_program)
+  ) %>%
+  # Remove any rows with missing values in DV or predictors
+  drop_na(MH_score, poverty_level, heart_condition, bmi, drug_problem,
+          mental_health_problem, overall_health, gender, no_health_insurance, gov_program)
+
+# now we save this
+young_adults <- young_adults %>%
+  select(MH_score, poverty_level, heart_condition, bmi, drug_problem,
+         mental_health_problem, overall_health, gender, no_health_insurance, gov_program)
+
+```
+
+```{r health}
+# let's take a peak
+head(young_adults)
+ 
+summary(young_adults)
+
+# information about vars; poverty three levels, heart condition and health insurance is yes no, drug problem and MH
+# is also binary, overall health ordinal 5, 
+
+# this loks pretty normally distributed among young people
+ggplot(young_adults, aes(MH_score)) +
+  geom_histogram(bins = 30)
+
+```
+
+```{r health2}
+# mutate so it makes more sense
+young_adults <- young_adults %>%
+  mutate(overall_health_rev = recode(overall_health,
+                                     `1` = 4,
+                                     `2` = 3,
+                                     `3` = 2,
+                                     `4` = 1
+  ))
+
+# relationship btwn overall and MH 
+ggplot(young_adults, aes(factor(overall_health_rev), MH_score)) +
+  geom_jitter(aes(colour = overall_health_rev), width = .15, alpha = .3) +
+  labs(title = "cats",
+       subtitle = "cats",
+       )
+
+```
+
+```{r}
+# why type each var is
+# was having issues with certain plots so best way to deal 
+sapply(young_adults, class)
+
+cat_df <- young_adults %>%
+  mutate(
+    poverty_level = factor(poverty_level),
+    bmi = cut(bmi, breaks = 4)
+  ) %>%
+  pivot_longer(
+    cols = c(poverty_level, heart_condition, bmi,
+             drug_problem, mental_health_problem,
+             no_health_insurance, gov_program),
+    names_to = "predictor",
+    values_to = "value"
+  )
+
+num_df <- young_adults %>%
+  pivot_longer(
+    cols = c(overall_health_rev),
+    names_to = "predictor",
+    values_to = "value"
+  )
+
+```
+
+```{r overall-health}
+ggplot(cat_df, aes(x = MH_score, y = value)) +
+  geom_density_ridges2() +
+  facet_wrap(~ predictor, scales = "free_y") +
+  labs(y = "Group", x = "Mental Health Score")
+
+ggplot(num_df, aes(x = value, y = MH_score)) +
+  geom_point(alpha = .3) +
+  geom_smooth(method = "loess") +
+  labs(x = "Overall Health", y = "Mental Health Score")
+
+cor(num_df$value, num_df$MH_score, use = "complete.obs")
+```
+
+```{r}
+# the bmi one also really stood out to me
+
+# kick out unrealistic scores
+young_adults_filtered <- young_adults %>% filter(bmi < 45)
+
+ggplot(young_adults_filtered, aes(x = bmi, y = MH_score)) +
+  geom_point(alpha = .25) +
+  geom_smooth(method = "loess") +
+  labs(x = "BMI", y = "Mental Health Score")
+
+# 
+young_adults_filtered %>%
+  mutate(bmi_cat = cut(bmi, breaks = 4)) %>%
+  ggplot(aes(x = bmi_cat, y = MH_score)) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  stat_summary(fun.data = mean_cl_boot, geom = "errorbar", width = .2) +
+  labs(x = "BMI category", y = "Mental Health Score")
+
+
+# is there really a u shaped curve? - yes
+lm(MH_score ~ bmi + I(bmi^2), data = young_adults_filtered)
+
+ggplot(young_adults_filtered, aes(x = bmi, y = MH_score)) +
+  geom_point(alpha = .2) +
+  geom_smooth(method = "gam", formula = y ~ s(x), size = 1.2) +
+  theme_minimal() +
+  labs(
+    title = "Curvilinear Association Between BMI and Mental Health",
+    x = "Body Mass Index (BMI)",
+    y = "Mental Health Score"
+  )
+```
+
+```{r cool stuff}
+# more cool sutff
+young_adults_filtered <- young_adults_filtered %>%
+  mutate(
+    overall_health_cat = factor(overall_health_rev),
+    poverty_level = factor(poverty_level)
+  )
+
+ggplot(young_adults_filtered, 
+       aes(x = bmi, y = MH_score, color = factor(overall_health_rev))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "gam", formula = y ~ s(x), se = FALSE) +
+  labs(
+    x = "BMI",
+    y = "Mental Health Score",
+    color = "Overall Health",
+    title = "BMI vs MH, colored by Overall Health"
+  ) +
+  theme_minimal()
+
+
+# Plot BMI vs Mental Health by gender
+ggplot(young_adults_filtered, aes(x = bmi, y = MH_score, color = gender)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "gam", formula = y ~ s(x), se = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "BMI vs Mental Health by Gender",
+    x = "Body Mass Index (BMI)",
+    y = "Mental Health Score",
+    color = "Gender"
+  )
+
+
+```
+
